@@ -1,6 +1,6 @@
 # DonutPLUS
 
-A Fabric mod that provides technical features and quality-of-life (QoL) improvements designed specifically for the DonutSMP experience.
+A Fabric mod that provides technical features and quality-of-life (QoL) improvements designed specifically for DonutSMP
 
 ## Disclaimer
 
