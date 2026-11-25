@@ -3,7 +3,7 @@
 ## Current Features
 
 - Safe Pay (v1.0.0)
-  - Confirms large `/pay` transactions before they are sent.
+  - Stops large `/pay` transactions before they are sent.
   - Configurable threshold.
   - Clickable Accept/Decline chat buttons.
 
