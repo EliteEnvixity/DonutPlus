@@ -1,6 +1,6 @@
 DonutPLUS License v1.0
 
-Copyright (c) 2026 EliteEnvixity
+Copyright © 2026 EliteEnvixity
 
 Permission is granted to view, download, use, and modify the source code of DonutPLUS for personal, educational, and non-commercial purposes.
 
