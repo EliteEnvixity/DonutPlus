@@ -2,7 +2,7 @@
 
 A Fabric mod that provides technical features and quality-of-life (QoL) improvements designed specifically for DonutSMP.
 
-**Current Version:** [DonutPLUS v1.1.0](https://github.com/EliteEnvixity/DonutPlus/releases/tag/donutplus-v1-1-0)
+**Current Version:** [DonutPLUS v1.2.0](https://github.com/EliteEnvixity/DonutPlus/releases/tag/donutplus-v1-2-0)
 
 ## Quick Links
 

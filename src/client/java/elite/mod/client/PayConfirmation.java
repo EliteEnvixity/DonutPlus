@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.Locale;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.message.v1.ClientSendMessageEvents;
@@ -30,7 +31,8 @@ public final class PayConfirmation {
 	/** The payment currently waiting for a click in chat. */
 	private static ChatRequest chatRequest = null;
 
-	private record PendingPay(String command, String player, String rawAmount, BigDecimal amount) {}
+	private record PendingPay(String command, String player, String rawAmount, BigDecimal amount,
+			Consumer<Boolean> callback) {}
 
 	private record ChatRequest(PendingPay pay, String id, long expiresAt) {}
 
@@ -67,8 +69,12 @@ public final class PayConfirmation {
 			}
 
 			if (chatRequest != null && isExpired(chatRequest.expiresAt())) {
+				Consumer<Boolean> callback = chatRequest.pay().callback();
 				chatRequest = null;
 				say(client, Component.literal("Payment request expired.").withStyle(ChatFormatting.RED));
+				if (callback != null) {
+					callback.accept(false);
+				}
 			}
 		});
 	}
@@ -80,6 +86,10 @@ public final class PayConfirmation {
 	 * @return true if the command was one of ours and has been handled (so it must be blocked)
 	 */
 	public static boolean handleHiddenCommand(String command) {
+		if (PaybackManager.handleHiddenCommand(command)) {
+			return true;
+		}
+
 		String[] words = command.trim().split("\\s+");
 		if (words.length != 3 || !words[0].equalsIgnoreCase("paysafe")) {
 			return false;
@@ -134,13 +144,23 @@ public final class PayConfirmation {
 		}
 
 		chatRequest = null;
+		Consumer<Boolean> callback = request.pay().callback();
 
 		if (isExpired(request.expiresAt())) {
 			say(client, Component.literal("Payment request expired.").withStyle(ChatFormatting.RED));
+			if (callback != null) {
+				callback.accept(false);
+			}
 		} else if (confirmed) {
 			send(client, request.pay().command());
+			if (callback != null) {
+				callback.accept(true);
+			}
 		} else {
 			say(client, Component.literal("Payment cancelled.").withStyle(ChatFormatting.GRAY));
+			if (callback != null) {
+				callback.accept(false);
+			}
 		}
 	}
 
@@ -153,7 +173,50 @@ public final class PayConfirmation {
 		return expiresAt > 0 && System.currentTimeMillis() > expiresAt;
 	}
 
-	private static void send(Minecraft client, String command) {
+	/** True while a Safe Pay question is waiting to be shown or answered. */
+	static boolean isBusy() {
+		return queued != null || chatRequest != null;
+	}
+
+	/**
+	 * Sends "/pay player amount" on behalf of Payback, but through Safe Pay: if Safe Pay is on and
+	 * the amount is at or above the threshold, the usual Confirm/Cancel buttons are shown and the
+	 * payment is only sent when you click Confirm. Smaller amounts go straight out.
+	 *
+	 * The callback is always called exactly once: true if the payment was sent, false if it was
+	 * cancelled or the request expired.
+	 */
+	static void sendChecked(Minecraft client, String player, BigDecimal amount, Consumer<Boolean> callback) {
+		String command = "pay " + player + " " + amount.toBigInteger();
+		PayConfig config = PayConfig.get();
+
+		if (!config.enabled || amount.compareTo(config.thresholdValue()) < 0) {
+			send(client, command);
+			callback.accept(true);
+			return;
+		}
+
+		queued = new PendingPay(command, player, "$" + AmountParser.format(amount), amount, callback);
+	}
+
+	/** True if a Safe Pay question that came from Payback is waiting to be shown or answered. */
+	static boolean hasPaybackRequest() {
+		return (queued != null && queued.callback() != null)
+			|| (chatRequest != null && chatRequest.pay().callback() != null);
+	}
+
+	/** Forgets any Safe Pay question that came from Payback, without calling its callback. */
+	static void dropPaybackRequest() {
+		if (queued != null && queued.callback() != null) {
+			queued = null;
+		}
+		if (chatRequest != null && chatRequest.pay().callback() != null) {
+			chatRequest = null;
+		}
+	}
+
+	/** Sends a command without Safe Pay stepping in. Callers have already asked the user. */
+	static void send(Minecraft client, String command) {
 		if (client.getConnection() == null) {
 			return;
 		}
@@ -182,6 +245,6 @@ public final class PayConfirmation {
 		if (amount == null) {
 			return null;
 		}
-		return new PendingPay(command, parts[1], parts[2], amount);
+		return new PendingPay(command, parts[1], parts[2], amount, null);
 	}
 }

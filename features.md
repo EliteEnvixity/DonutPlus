@@ -15,13 +15,16 @@
   - Hover a timestamp to see the full date.
   - Live preview in the settings screen.
 
+- 2x Payment Payback (v1.2.0)
+  - Pays back players who paid you, at 2x by default (configurable).
+  - `/payback` starts and stops waiting for payments, `/payback start` pays everyone back, and `/payback stop` cancels payments in progress.
+  - Also works with a keybind (Options > Controls > Key Binds, unbound by default).
+  - Asks for Confirm/Cancel before sending, and each payout goes through Safe Pay.
+  - Optional minimum: a player's payments add up, and anyone under the minimum is never paid back (can also hide their payment messages).
+
 ## Upcoming Features
 
-- [ ] 2x Payment Payback (Planned for v1.2.0)
-  - **Note:** When triggered through a configurable command or keybind, players who have recently paid you will automatically receive back 2x the amount they originally sent.
-
-- [ ] Announce if Either Viewer or Host Wins (Planned for v1.2.0)
-  - **Note:** This feature will be toggleable. If I can't get it working reliably, I'll let everyone know.
+- [ ] Item Auctions (Planned for v1.3.0)
 
 ---
 

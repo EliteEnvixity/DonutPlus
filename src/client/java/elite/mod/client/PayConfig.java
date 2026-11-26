@@ -6,6 +6,10 @@ import java.io.Writer;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -16,8 +20,18 @@ import net.fabricmc.loader.api.FabricLoader;
 /** Settings, saved to config/donutplus.json and editable through Mod Menu. */
 public final class PayConfig {
 	private static final BigDecimal DEFAULT_THRESHOLD = new BigDecimal("100000000");
-	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create();
+	/**
+	 * Matches the whole line DonutSMP shows when someone pays you, e.g. "Steve paid you $5M".
+	 * Needs the named groups (?<player>...) and (?<amount>...). Because the whole line must match,
+	 * player chat (which always has a name in front) can't fake a payment.
+	 */
+	public static final String DEFAULT_PAYBACK_PATTERN =
+		"(?i)^(?<player>[A-Za-z0-9_.]{1,20}) paid you \\$ ?(?<amount>[0-9][0-9,]*(?:\\.[0-9]+)?[kmbt]?)\\.?$";
+
 	private static PayConfig instance;
+
+	public static final String DEFAULT_PAYBACK_COMMAND = "payback";
 
 	/** Turn the whole safety check on or off. */
 	public boolean enabled = true;
@@ -36,6 +50,26 @@ public final class PayConfig {
 	public String timestampBrackets = ChatTimestamp.DEFAULT_BRACKETS;
 	/** Hovering the timestamp shows the full date and time with seconds. */
 	public boolean timestampHoverDate = true;
+
+	// Payment payback. Waiting for payments is switched on and off with /payback.
+	/** Players get back what they paid you times this. */
+	public double paybackMultiplier = 2.0;
+	/** Only payments from the last this-many seconds count. 0 = everything collected while waiting (the default). */
+	public int paybackWindowSeconds = 0;
+	/** Show the list and ask for a click before sending anything. Strongly recommended. */
+	public boolean paybackConfirm = true;
+	/** Ticks to wait between payments (20 = one second), so the server doesn't treat it as spam. */
+	public int paybackDelayTicks = 20;
+	/** Most one player can get back in one go. Accepts 100m, 2.5b... 0 = no limit. */
+	public String paybackMaxPayout = "0";
+	/** How an incoming payment line is read. See DEFAULT_PAYBACK_PATTERN. */
+	public String paybackPattern = DEFAULT_PAYBACK_PATTERN;
+	/** The command that triggers payback, without the slash. Takes effect after restarting the game. */
+	public String paybackCommand = DEFAULT_PAYBACK_COMMAND;
+	/** Players who paid you less than this in total (their payments add up) are never paid back. Accepts 100k, 2.5m... 0 = no minimum. */
+	public String paybackMinimum = "0";
+	/** While waiting, hide "X paid you $Y" lines from chat until that player's payments reach the minimum. */
+	public boolean paybackHideUnderMinimum = false;
 
 	public static PayConfig get() {
 		if (instance == null) {
@@ -91,6 +125,51 @@ public final class PayConfig {
 		}
 		if (timestampBrackets == null || !ChatTimestamp.isBracketStyle(timestampBrackets)) {
 			timestampBrackets = ChatTimestamp.DEFAULT_BRACKETS;
+		}
+		if (!(paybackMultiplier > 0) || paybackMultiplier > 100) {
+			paybackMultiplier = 2.0;
+		}
+		if (paybackWindowSeconds < 0) {
+			paybackWindowSeconds = 0;
+		}
+		if (paybackDelayTicks < 1) {
+			paybackDelayTicks = 1;
+		}
+		if (paybackMaxPayout == null) {
+			paybackMaxPayout = "0";
+		}
+		if (!isValidPaybackPattern(paybackPattern)) {
+			paybackPattern = DEFAULT_PAYBACK_PATTERN;
+		}
+		paybackCommand = paybackCommand == null ? "" : paybackCommand.trim().toLowerCase(Locale.ROOT);
+		if (paybackCommand.startsWith("/")) {
+			paybackCommand = paybackCommand.substring(1);
+		}
+		if (!isValidPaybackCommand(paybackCommand)) {
+			paybackCommand = DEFAULT_PAYBACK_COMMAND;
+		}
+		if (paybackMinimum == null || AmountParser.parse(paybackMinimum) == null) {
+			paybackMinimum = "0";
+		}
+	}
+
+	/** One word of letters, digits or underscores, and not a command this mod or the server's /pay already uses. */
+	public static boolean isValidPaybackCommand(String name) {
+		if (name == null || !name.matches("[a-z0-9_]{1,32}")) {
+			return false;
+		}
+		return !Set.of("pay", "epay", "paysafe", "paybacksafe").contains(name);
+	}
+
+	private static boolean isValidPaybackPattern(String pattern) {
+		if (pattern == null || !pattern.contains("(?<player>") || !pattern.contains("(?<amount>")) {
+			return false;
+		}
+		try {
+			Pattern.compile(pattern);
+			return true;
+		} catch (PatternSyntaxException e) {
+			return false;
 		}
 	}
 
