@@ -1,37 +1,38 @@
 {
 	"schemaVersion": 1,
-	"id": "elites-mod",
+	"id": "donutplus",
 	"version": "${version}",
-	"name": "Elite's Mod",
-	"description": "This is an example description! Tell everyone what your mod is about!",
+	"name": "DonutPLUS",
+	"description": "Technical features and quality-of-life improvements designed specifically for DonutSMP.",
 	"authors": [
-		"Me!"
+		"EliteEnvixity"
 	],
 	"contact": {
-		"homepage": "https://fabricmc.net/",
-		"sources": "https://github.com/FabricMC/fabric-example-mod"
+		"homepage": "https://github.com/EliteEnvixity/DonutPlus",
+		"sources": "https://github.com/EliteEnvixity/DonutPlus",
+		"issues": "https://github.com/EliteEnvixity/DonutPlus/issues"
 	},
-	"license": "CC0-1.0",
-	"icon": "assets/elites-mod/icon.png",
+	"license": "LicenseRef-DonutPLUS-1.0",
+	"icon": "assets/donutplus/icon.png",
 	"environment": "*",
 	"entrypoints": {
 		"main": [
-			"elite.mod.EliteSMod"
+			"elite.mod.DonutPlus"
 		],
 		"client": [
-			"elite.mod.client.EliteSModClient"
+			"elite.mod.client.DonutPlusClient"
 		],
 		"modmenu": [
-			"elite.mod.client.EliteSModMenu"
+			"elite.mod.client.DonutPlusMenu"
 		],
 		"fabric-datagen": [
-			"elite.mod.client.EliteSModDataGenerator"
+			"elite.mod.client.DonutPlusDataGenerator"
 		]
 	},
 	"mixins": [
-		"elites-mod.mixins.json",
+		"donutplus.mixins.json",
 		{
-			"config": "elites-mod.client.mixins.json",
+			"config": "donutplus.client.mixins.json",
 			"environment": "client"
 		}
 	],

@@ -10,10 +10,10 @@ import java.nio.file.Path;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import elite.mod.EliteSMod;
+import elite.mod.DonutPlus;
 import net.fabricmc.loader.api.FabricLoader;
 
-/** Settings, saved to config/elites-mod.json and editable through Mod Menu. */
+/** Settings, saved to config/donutplus.json and editable through Mod Menu. */
 public final class PayConfig {
 	private static final BigDecimal DEFAULT_THRESHOLD = new BigDecimal("100000000");
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -26,6 +26,17 @@ public final class PayConfig {
 	/** How long a confirmation stays open. 0 = never expires. */
 	public int expirySeconds = 15;
 
+	/** Put the time in front of every chat line. */
+	public boolean timestampsEnabled = true;
+	/** A java.time pattern: "HH:mm", "HH:mm:ss", "hh:mm a", "dd/MM HH:mm"... */
+	public String timestampFormat = ChatTimestamp.DEFAULT_FORMAT;
+	/** Hex color of the timestamp, with or without a leading #. */
+	public String timestampColor = ChatTimestamp.DEFAULT_COLOR;
+	/** What surrounds the time: "[]", "()", "<>" or "none". */
+	public String timestampBrackets = ChatTimestamp.DEFAULT_BRACKETS;
+	/** Hovering the timestamp shows the full date and time with seconds. */
+	public boolean timestampHoverDate = true;
+
 	public static PayConfig get() {
 		if (instance == null) {
 			load();
@@ -34,20 +45,20 @@ public final class PayConfig {
 	}
 
 	public static void load() {
+		migrateOldConfig();
 		PayConfig loaded = null;
 		Path file = file();
 		if (Files.exists(file)) {
 			try (Reader reader = Files.newBufferedReader(file)) {
 				loaded = GSON.fromJson(reader, PayConfig.class);
 			} catch (Exception e) {
-				EliteSMod.LOGGER.warn("Couldn't read {}, using defaults", file, e);
+				DonutPlus.LOGGER.warn("Couldn't read {}, using defaults", file, e);
 			}
 		}
 		instance = loaded != null ? loaded : new PayConfig();
 		instance.sanitize();
-		if (loaded == null) {
-			save();
-		}
+		// Also saves when an older config file is missing the timestamp options, so they show up in the file.
+		save();
 	}
 
 	public static void save() {
@@ -55,7 +66,7 @@ public final class PayConfig {
 		try (Writer writer = Files.newBufferedWriter(file)) {
 			GSON.toJson(get(), writer);
 		} catch (IOException e) {
-			EliteSMod.LOGGER.warn("Couldn't save {}", file, e);
+			DonutPlus.LOGGER.warn("Couldn't save {}", file, e);
 		}
 	}
 
@@ -64,6 +75,7 @@ public final class PayConfig {
 		return value != null ? value : DEFAULT_THRESHOLD;
 	}
 
+	/** Repairs hand-edited values so a typo in the file can't break chat. */
 	private void sanitize() {
 		if (threshold == null) {
 			threshold = "100m";
@@ -71,9 +83,31 @@ public final class PayConfig {
 		if (expirySeconds < 0) {
 			expirySeconds = 0;
 		}
+		if (!ChatTimestamp.isValidPattern(timestampFormat)) {
+			timestampFormat = ChatTimestamp.DEFAULT_FORMAT;
+		}
+		if (ChatTimestamp.parseColor(timestampColor) < 0) {
+			timestampColor = ChatTimestamp.DEFAULT_COLOR;
+		}
+		if (timestampBrackets == null || !ChatTimestamp.isBracketStyle(timestampBrackets)) {
+			timestampBrackets = ChatTimestamp.DEFAULT_BRACKETS;
+		}
 	}
 
 	private static Path file() {
-		return FabricLoader.getInstance().getConfigDir().resolve("elites-mod.json");
+		return FabricLoader.getInstance().getConfigDir().resolve("donutplus.json");
+	}
+
+	/** The mod used to be called Elite's Mod. Carry its settings over so nobody loses them. */
+	private static void migrateOldConfig() {
+		Path oldFile = FabricLoader.getInstance().getConfigDir().resolve("elites-mod.json");
+		Path newFile = file();
+		if (Files.exists(oldFile) && !Files.exists(newFile)) {
+			try {
+				Files.move(oldFile, newFile);
+			} catch (IOException e) {
+				DonutPlus.LOGGER.warn("Couldn't move {} to {}", oldFile, newFile, e);
+			}
+		}
 	}
 }
