@@ -7,9 +7,15 @@
   - Configurable threshold.
   - Clickable Accept/Decline chat buttons.
 
-## Upcoming Features
+- Toggleable Chat Timestamps (v1.1.0)
+  - Adds the time to every chat message.
+  - Can be turned on or off.
+  - Configurable time format (for example `HH:mm`, `HH:mm:ss` or `hh:mm a`).
+  - Configurable color and bracket style.
+  - Hover a timestamp to see the full date.
+  - Live preview in the settings screen.
 
-- [ ] Toggleable Chat Timestamps (Planned for v1.1.0)
+## Upcoming Features
 
 - [ ] 2x Payment Payback (Planned for v1.2.0)
   - **Note:** When triggered through a configurable command or keybind, players who have recently paid you will automatically receive back 2x the amount they originally sent.
