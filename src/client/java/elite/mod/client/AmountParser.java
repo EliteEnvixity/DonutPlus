@@ -2,6 +2,7 @@ package elite.mod.client;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,6 +23,27 @@ public final class AmountParser {
 			return null;
 		}
 		return new BigDecimal(m.group(1)).multiply(multiplier(m.group(2)));
+	}
+
+	/**
+	 * Short form of an amount, without a sign: 4400000 -> "4.4m", 12345678 -> "12.34m", 950 -> "950".
+	 * Uses k, m, b and t, keeps up to two decimals and rounds down so it never overstates.
+	 */
+	public static String formatShort(BigDecimal value) {
+		BigDecimal abs = value.abs();
+		String[] suffixes = {"t", "b", "m", "k"};
+		BigDecimal[] units = {
+			new BigDecimal(BigInteger.TEN.pow(12)),
+			new BigDecimal(BigInteger.TEN.pow(9)),
+			new BigDecimal(BigInteger.TEN.pow(6)),
+			new BigDecimal(BigInteger.TEN.pow(3))
+		};
+		for (int i = 0; i < units.length; i++) {
+			if (abs.compareTo(units[i]) >= 0) {
+				return abs.divide(units[i], 2, RoundingMode.DOWN).stripTrailingZeros().toPlainString() + suffixes[i];
+			}
+		}
+		return abs.setScale(0, RoundingMode.DOWN).toPlainString();
 	}
 
 	/** 100000000 -> "100,000,000" */

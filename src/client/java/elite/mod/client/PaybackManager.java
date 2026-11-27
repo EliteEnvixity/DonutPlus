@@ -73,7 +73,7 @@ public final class PaybackManager {
 
 	public static void register() {
 		// Shows up under Options > Controls > Key Binds. Unbound until you pick a key.
-		KeyMapping.Category category = KeyMapping.Category.register(DonutPlus.id("main"));
+		KeyMapping.Category category = ModKeys.MAIN;
 		paybackKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
 			"key.donutplus.payback",
 			InputConstants.Type.KEYSYM,
@@ -131,7 +131,7 @@ public final class PaybackManager {
 		if (!m.matches()) {
 			// Looks like a payment but isn't in the expected shape: tell the user once, so they can
 			// fix paybackPattern instead of wondering why nothing is tracked.
-			if (!warnedUnmatched && line.toLowerCase(Locale.ROOT).contains(" paid you $")) {
+			if (!warnedUnmatched && line.toLowerCase(Locale.ROOT).contains(" paid you ")) {
 				warnedUnmatched = true;
 				DonutPlus.LOGGER.info("Payback couldn't read this payment line: {}", line);
 				Minecraft client = Minecraft.getInstance();

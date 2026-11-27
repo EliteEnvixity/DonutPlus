@@ -71,6 +71,34 @@ public final class PayConfig {
 	/** While waiting, hide "X paid you $Y" lines from chat until that player's payments reach the minimum. */
 	public boolean paybackHideUnderMinimum = false;
 
+	/** Show the session earnings box on screen. */
+	public boolean statsHudEnabled = true;
+	/** Where the box sits, in pixels from the top-left of the screen. */
+	public int statsHudX = 4;
+	public int statsHudY = 4;
+
+	/** How long an auction runs, in seconds. */
+	public int auctionDurationSeconds = 60;
+	/** Payments below this don't count as bids. Accepts 100k, 1m, 2.5m... */
+	public String auctionMinBid = "1m";
+	/** The item typed in the auction menu last time. Can be empty. */
+	public String auctionItem = "";
+	/** Show the auction box on screen. */
+	public boolean auctionHudEnabled = true;
+	/** Where the auction box sits, in pixels from the top-left of the screen. */
+	public int auctionHudX = 4;
+	public int auctionHudY = 44;
+	/** List payments below the minimum bid in the overlay. They still don't count. */
+	public boolean auctionShowUnderMin = false;
+	/** Print "Top bid: ..." in your chat (only you see it) when someone takes the lead. */
+	public boolean auctionChatUpdates = true;
+	/** Play a sound when a valid bid comes in. */
+	public boolean auctionSound = true;
+	/** The overlay timer turns red in the last this-many seconds. 0 = never. */
+	public int auctionWarnSeconds = 10;
+	/** How long the result stays on screen after an auction ends. */
+	public int auctionResultSeconds = 30;
+
 	public static PayConfig get() {
 		if (instance == null) {
 			load();
@@ -151,6 +179,24 @@ public final class PayConfig {
 		if (paybackMinimum == null || AmountParser.parse(paybackMinimum) == null) {
 			paybackMinimum = "0";
 		}
+		statsHudX = Math.max(0, Math.min(statsHudX, 9999));
+		statsHudY = Math.max(0, Math.min(statsHudY, 9999));
+		if (auctionDurationSeconds < 5 || auctionDurationSeconds > 3600) {
+			auctionDurationSeconds = 60;
+		}
+		BigDecimal auctionMin = auctionMinBid == null ? null : AmountParser.parse(auctionMinBid);
+		if (auctionMin == null || auctionMin.signum() <= 0) {
+			auctionMinBid = "1m";
+		}
+		auctionHudX = Math.max(0, Math.min(auctionHudX, 9999));
+		if (auctionItem == null) {
+			auctionItem = "";
+		} else if (auctionItem.length() > 40) {
+			auctionItem = auctionItem.substring(0, 40);
+		}
+		auctionHudY = Math.max(0, Math.min(auctionHudY, 9999));
+		auctionWarnSeconds = Math.max(0, Math.min(auctionWarnSeconds, 600));
+		auctionResultSeconds = Math.max(0, Math.min(auctionResultSeconds, 3600));
 	}
 
 	/** One word of letters, digits or underscores, and not a command this mod or the server's /pay already uses. */

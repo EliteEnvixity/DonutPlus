@@ -12,16 +12,18 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
-/** Settings screen opened from Mod Menu, split into four tabs: Safe Pay, Payback, Minimum and Chat. */
+/** Settings screen opened from Mod Menu, split into six tabs: Safe Pay, Payback, Minimum, Chat, Stats and Auction. */
 public class PayConfigScreen extends Screen {
-	private static final int WIDTH = 260;
+	private static final int WIDTH = 330;
 	private static final int GAP = 4;
 
 	private static final int TAB_SAFE_PAY = 0;
 	private static final int TAB_PAYBACK = 1;
 	private static final int TAB_MINIMUM = 2;
 	private static final int TAB_CHAT = 3;
-	private static final String[] TAB_NAMES = {"Safe Pay", "Payback", "Minimum", "Chat"};
+	private static final int TAB_STATS = 4;
+	private static final int TAB_AUCTION = 5;
+	private static final String[] TAB_NAMES = {"Safe Pay", "Payback", "Minimum", "Chat", "Stats", "Auction"};
 
 	private final Screen parent;
 
@@ -55,6 +57,23 @@ public class PayConfigScreen extends Screen {
 	private EditBox formatBox;
 	private EditBox colorBox;
 
+	// Stats
+	private boolean statsHud;
+	private int statsX;
+	private int statsY;
+	private boolean positionOpen;
+	private EditBox xBox;
+	private EditBox yBox;
+	private boolean clearArmed;
+	private Button clearButton;
+	private EditBox startBalanceBox;
+	private String startBalanceText = "";
+
+	// Auction
+	private boolean auctionHud;
+	private EditBox auctionXBox;
+	private EditBox auctionYBox;
+
 	private Component error = Component.empty();
 
 	public PayConfigScreen(Screen parent) {
@@ -82,6 +101,12 @@ public class PayConfigScreen extends Screen {
 		this.paybackConfirm = config.paybackConfirm;
 		this.hideUnderMinimum = config.paybackHideUnderMinimum;
 		this.activeCommand = config.paybackCommand;
+		this.statsHud = config.statsHudEnabled;
+		this.statsX = config.statsHudX;
+		this.statsY = config.statsHudY;
+		this.auctionHud = config.auctionHudEnabled;
+		this.positionOpen = false;
+		this.clearArmed = false;
 
 		this.tabWidgets.clear();
 		for (int i = 0; i < TAB_NAMES.length; i++) {
@@ -95,7 +120,7 @@ public class PayConfigScreen extends Screen {
 		int y0 = top + 30;
 
 		// --- Tab buttons ---
-		int tabWidth = (WIDTH - 2 * GAP) / TAB_NAMES.length;
+		int tabWidth = (WIDTH - (TAB_NAMES.length - 1) * GAP) / TAB_NAMES.length;
 		for (int i = 0; i < TAB_NAMES.length; i++) {
 			final int index = i;
 			this.tabButtons[i] = this.addRenderableWidget(Button.builder(Component.literal(TAB_NAMES[i]), b -> showTab(index))
@@ -192,6 +217,76 @@ public class PayConfigScreen extends Screen {
 			b.setMessage(hoverLabel());
 		}).bounds(right, y0 + 106, half, 20).build());
 
+		// --- Stats tab ---
+		addTabbed(TAB_STATS, Button.builder(statsHudLabel(), b -> {
+			this.statsHud = !this.statsHud;
+			b.setMessage(statsHudLabel());
+		}).bounds(left, y0, WIDTH, 20).build());
+
+		addTabbed(TAB_STATS, Button.builder(positionLabel(), b -> {
+			if (this.positionOpen) {
+				this.statsX = parseCoord(this.xBox.getValue());
+				this.statsY = parseCoord(this.yBox.getValue());
+			}
+			this.positionOpen = !this.positionOpen;
+			b.setMessage(positionLabel());
+			applyPositionVisibility();
+		}).bounds(left, y0 + 24, WIDTH, 20).build());
+
+		// Shown when the position button is clicked: where the box sits, in pixels from the top-left of the screen.
+		int fieldWidth = (WIDTH - 36) / 2;
+		this.xBox = addTabbed(TAB_STATS,
+			new EditBox(this.font, left + 14, y0 + 48, fieldWidth, 20, Component.literal("X")));
+		this.xBox.setMaxLength(4);
+		this.xBox.setFilter(s -> s.matches("\\d{0,4}"));
+		this.xBox.setValue(String.valueOf(this.statsX));
+		this.yBox = addTabbed(TAB_STATS,
+			new EditBox(this.font, left + 22 + fieldWidth + 14, y0 + 48, fieldWidth, 20, Component.literal("Y")));
+		this.yBox.setMaxLength(4);
+		this.yBox.setFilter(s -> s.matches("\\d{0,4}"));
+		this.yBox.setValue(String.valueOf(this.statsY));
+
+		// Clearing happens right away (it doesn't wait for Done) and takes two clicks so it can't be done by accident.
+		this.clearButton = addTabbed(TAB_STATS, Button.builder(clearLabel(), b -> {
+			if (this.clearArmed) {
+				SessionStats.clear();
+				this.clearArmed = false;
+				if (this.startBalanceBox != null) {
+					this.startBalanceBox.setValue("");
+					this.startBalanceText = "";
+				}
+			} else {
+				this.clearArmed = true;
+			}
+			b.setMessage(clearLabel());
+		}).bounds(left, y0 + 72, WIDTH, 20).build());
+
+		// Your balance when the session started. Blank = unknown: it's picked up from a balance message when one shows up.
+		this.startBalanceBox = addTabbed(TAB_STATS,
+			new EditBox(this.font, left, y0 + 112, WIDTH, 20, Component.literal("Starting balance")));
+		this.startBalanceBox.setMaxLength(16);
+		this.startBalanceText = SessionStats.startBalance() == null ? ""
+			: SessionStats.startBalance().toBigInteger().toString();
+		this.startBalanceBox.setValue(this.startBalanceText);
+
+		// --- Auction tab ---
+		addTabbed(TAB_AUCTION, Button.builder(auctionLabel(), b -> {
+			this.auctionHud = !this.auctionHud;
+			b.setMessage(auctionLabel());
+		}).bounds(left, y0, WIDTH, 20).build());
+
+		this.auctionXBox = addTabbed(TAB_AUCTION,
+			new EditBox(this.font, left, y0 + 52, half, 20, Component.literal("X")));
+		this.auctionXBox.setMaxLength(4);
+		this.auctionXBox.setFilter(s -> s.matches("\\d{0,4}"));
+		this.auctionXBox.setValue(String.valueOf(config.auctionHudX));
+
+		this.auctionYBox = addTabbed(TAB_AUCTION,
+			new EditBox(this.font, right, y0 + 52, half, 20, Component.literal("Y")));
+		this.auctionYBox.setMaxLength(4);
+		this.auctionYBox.setFilter(s -> s.matches("\\d{0,4}"));
+		this.auctionYBox.setValue(String.valueOf(config.auctionHudY));
+
 		// --- Bottom buttons (always visible) ---
 		int bottom = Math.min(y0 + 176, this.height - 28);
 		this.addRenderableWidget(Button.builder(Component.literal("Done"), b -> save())
@@ -209,6 +304,10 @@ public class PayConfigScreen extends Screen {
 		this.tab = index;
 		this.error = Component.empty();
 		this.setFocused(null);
+		this.clearArmed = false;
+		if (this.clearButton != null) {
+			this.clearButton.setMessage(clearLabel());
+		}
 
 		for (int i = 0; i < this.tabWidgets.size(); i++) {
 			for (AbstractWidget widget : this.tabWidgets.get(i)) {
@@ -216,6 +315,7 @@ public class PayConfigScreen extends Screen {
 			}
 			this.tabButtons[i].active = i != index;
 		}
+		applyPositionVisibility();
 	}
 
 	/** Jumps to the tab with the problem and shows the message there. */
@@ -246,6 +346,45 @@ public class PayConfigScreen extends Screen {
 
 	private Component hoverLabel() {
 		return Component.literal("Hover: " + (this.hoverDate ? "On" : "Off"));
+	}
+
+	private Component statsHudLabel() {
+		return Component.literal("Session earnings box: " + (this.statsHud ? "On" : "Off"));
+	}
+
+	private Component positionLabel() {
+		return Component.literal(this.positionOpen ? "Box position: set X and Y below (click to close)"
+			: "Box position: X " + this.statsX + ", Y " + this.statsY + " (click to change)");
+	}
+
+	/** The X and Y boxes only show while the position button is open. */
+	private void applyPositionVisibility() {
+		boolean show = this.tab == TAB_STATS && this.positionOpen;
+		if (this.xBox != null) {
+			this.xBox.visible = show;
+		}
+		if (this.yBox != null) {
+			this.yBox.visible = show;
+		}
+	}
+
+	private static int parseCoord(String text) {
+		if (text == null || text.isEmpty()) {
+			return 0;
+		}
+		try {
+			return Math.min(9999, Integer.parseInt(text));
+		} catch (NumberFormatException e) {
+			return 0;
+		}
+	}
+
+	private Component auctionLabel() {
+		return Component.literal("Auction box: " + (this.auctionHud ? "On" : "Off"));
+	}
+
+	private Component clearLabel() {
+		return Component.literal(this.clearArmed ? "Click again to clear (can't be undone)" : "Clear session earnings");
 	}
 
 	private void save() {
@@ -318,8 +457,24 @@ public class PayConfigScreen extends Screen {
 			color = color.substring(1);
 		}
 
+		// --- Stats ---
+		int hudX = parseCoord(this.xBox.getValue());
+		int hudY = parseCoord(this.yBox.getValue());
+		String startText = this.startBalanceBox.getValue().trim().replace("$", "");
+		BigDecimal startBalance = null;
+		if (!startText.isEmpty()) {
+			startBalance = AmountParser.parse(startText);
+			if (startBalance == null) {
+				fail(TAB_STATS, "Balance must look like 3.4b, 250m or 50000000");
+				return;
+			}
+		}
+
+		// --- Auction ---
+		int auctionX = parseCoord(this.auctionXBox.getValue());
+		int auctionY = parseCoord(this.auctionYBox.getValue());
+
 		PayConfig config = PayConfig.get();
-		config.enabled = this.enabled;
 		config.threshold = this.thresholdBox.getValue().trim();
 		config.expirySeconds = expiry;
 		config.paybackConfirm = this.paybackConfirm;
@@ -335,7 +490,19 @@ public class PayConfigScreen extends Screen {
 		config.timestampColor = color.toUpperCase();
 		config.timestampBrackets = this.brackets;
 		config.timestampHoverDate = this.hoverDate;
+		config.statsHudEnabled = this.statsHud;
+		config.statsHudX = hudX;
+		config.statsHudY = hudY;
+		config.auctionHudEnabled = this.auctionHud;
+		config.auctionHudX = auctionX;
+		config.auctionHudY = auctionY;
+		config.enabled = this.enabled;
 		PayConfig.save();
+
+		// Only touch the saved balance if it was edited, so reopening and pressing Done can't change it.
+		if (!startText.equals(this.startBalanceText)) {
+			SessionStats.setStartBalance(startBalance);
+		}
 
 		this.minecraft.setScreen(this.parent);
 	}
@@ -382,6 +549,26 @@ public class PayConfigScreen extends Screen {
 				if (!this.timestampsEnabled) {
 					graphics.drawString(this.font, Component.literal("(timestamps are off)"), left, y0 + 148, 0xFF777777);
 				}
+			}
+			case TAB_STATS -> {
+				BigDecimal net = SessionStats.net();
+				if (this.positionOpen) {
+					graphics.drawString(this.font, Component.literal("X"), left + 2, y0 + 54, 0xFFAAAAAA);
+					graphics.drawString(this.font, Component.literal("Y"), left + 22 + (WIDTH - 36) / 2 + 2, y0 + 54, 0xFFAAAAAA);
+				}
+				graphics.drawString(this.font, Component.literal((net.signum() < 0 ? "Lost: " : "Made: ") + "$"
+					+ AmountParser.format(net.abs())), left, y0 + 140, net.signum() < 0 ? 0xFFFF5555 : 0xFF55FF55);
+				String since = SessionStats.since() == 0L ? "Nothing recorded yet"
+					: "Counting since " + java.time.format.DateTimeFormatter.ofPattern("MMM d, HH:mm")
+						.format(java.time.Instant.ofEpochMilli(SessionStats.since()).atZone(java.time.ZoneId.systemDefault()));
+				graphics.drawString(this.font, Component.literal(since), left, y0 + 152, 0xFF777777);
+				graphics.drawString(this.font, Component.literal("Balance when the session started (blank = auto)"),
+					left, y0 + 100, 0xFFAAAAAA);
+			}
+			case TAB_AUCTION -> {
+				graphics.drawString(this.font, Component.literal("Box position: X and Y (pixels from top-left)"), left, y0 + 40, 0xFFAAAAAA);
+				graphics.drawString(this.font, Component.literal("The item, length and minimum bid are set in the auction menu."), left, y0 + 84, 0xFF777777);
+				graphics.drawString(this.font, Component.literal("Set the auction menu key in Options > Controls > Key Binds."), left, y0 + 96, 0xFF777777);
 			}
 			default -> {
 			}
